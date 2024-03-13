@@ -9,9 +9,10 @@
  */
 
 import { Update } from "./types/Update";
+import { MIK, MI_PIEGO, WOOF, YOOOOOOOOOOO } from "./utils";
 
 export interface Env {
-	TELEGRAM_AUTH_TOK: string
+	TELEGRAM_AUTH_TOKEN: string
 	// Example binding to KV. Learn more at https://developers.cloudflare.com/workers/runtime-apis/kv/
 	// MY_KV_NAMESPACE: KVNamespace;
 	//
@@ -32,28 +33,60 @@ async function processUpdate(request: Request, telegramAuthToken: string) {
 	const update: Update = await request.json();
 	if ("message" in update) {
 		const message = update.message
-		const userText = message.text;
-		if (userText.startsWith("/mipiego")) {
-			const senderId = message.from.id
-			await replyToMessage(telegramAuthToken, update.message, "paprika")
+		console.log(message)
+		if ("sticker" in message) {
+			console.log(message.sticker)
+		}
+		if ("text" in message) {
+			const userText = message.text;
+			if (userText.toLowerCase().includes("mi piego")) {
+				const senderId = message.from.id
+				await replyToMessage(telegramAuthToken, update.message, MI_PIEGO[senderId])
+			}
+			// I know but it doesn't seem to work with either
+			// /yo\s/gmi
+			// /yo|yoo+/gmi
+			const yoooRegex: RegExp = /yoo+/gmi
+			if (userText == "yo" || yoooRegex.test(userText)) {
+				await replyToMessage(telegramAuthToken, update.message, YOOOOOOOOOOO.catchPhrase, YOOOOOOOOOOO.link)
+			}
+			// g == global search, i == case-insenstitive search
+			const mikRegex: RegExp = /mik/gmi
+			if (mikRegex.test(userText)) {
+				await sendSticker(telegramAuthToken, message)
+			}
+			const woofRegex: RegExp = /wo+f|grr+/gmi
+			if (woofRegex.test(userText) || userText.includes("bark") || userText.includes("snarl") || userText.includes("arf")) {
+				await replyToMessage(telegramAuthToken, update.message, WOOF)
+			}
 		}
 	}
 }
 
-async function replyToMessage(telegramAuthToken: string, message: any, responseText: string) {
+async function replyToMessage(telegramAuthToken: string, message: any, responseText: string, linkUrl: string = "") {
+	const chatId = message.chat.id;
+	const linkPreviewOptions = {
+		url: linkUrl
+	}
+	const replyParameters = {
+		message_id: message.message_id
+	}
+	const url = `https://api.telegram.org/bot${telegramAuthToken}/sendMessage?chat_id=${chatId}&text=${encodeURIComponent(responseText)}&reply_parameters=${JSON.stringify(replyParameters)}${linkUrl != "" ? `&link_preview_options=${JSON.stringify(linkPreviewOptions)}` : ""}`;
+	await fetch(url);
+}
+
+async function sendSticker(telegramAuthToken: string, message: any) {
 	const chatId = message.chat.id;
 	const replyParameters = {
 		message_id: message.message_id
 	}
-	console.log()
-	const url = `https://api.telegram.org/bot${telegramAuthToken}/sendMessage?chat_id=${chatId}&text=${encodeURIComponent(responseText)}&reply_parameters=${JSON.stringify(replyParameters)}`;
-	console.log(url)
+	const url = `https://api.telegram.org/bot${telegramAuthToken}/sendSticker?chat_id=${chatId}&sticker=${MIK.stickerFileId}&reply_parameters=${JSON.stringify(replyParameters)}`;
 	await fetch(url);
 }
 
 export default {
 	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-		await processUpdate(request, env.TELEGRAM_AUTH_TOK)
+		await processUpdate(request, env.TELEGRAM_AUTH_TOKEN)
 		return new Response('Ok');
 	},
 };
