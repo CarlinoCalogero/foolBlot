@@ -2,8 +2,9 @@ export const MI_PIEGO: Record<number, string> = {
     // telegram_id mi_piego_phrase
     873624965: "Ca\\\n       ogero",
     5663655397: "\\_\n    uca",
-    232414549: "raffae\\\n             e",
-    2135558691: "manue\\\n                 Di Cresce"
+    232414549: "Raffae\\\n             e",
+    2135558691: "Manue\\\n                 Di Cresce",
+    279499618: "Giacomo Pao\\\n                             occi"
 }
 
 export const YOOOOOOOOOOO = {

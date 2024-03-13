@@ -33,10 +33,7 @@ async function processUpdate(request: Request, telegramAuthToken: string) {
 	const update: Update = await request.json();
 	if ("message" in update) {
 		const message = update.message
-		console.log(message)
-		if ("sticker" in message) {
-			console.log(message.sticker)
-		}
+		// console.log(message)
 		if ("text" in message) {
 			const userText = message.text;
 			if (userText.toLowerCase().includes("mi piego")) {
