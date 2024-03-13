@@ -8,7 +8,7 @@ export const MI_PIEGO: Record<number, string> = {
 }
 
 export const YOOOOOOOOOOO = {
-    catchPhrase: " ",
+    catchPhrase: ".",
     link: "https://www.youtube.com/watch?v=VKMw2it8dQY"
 }
 

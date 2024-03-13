@@ -40,11 +40,8 @@ async function processUpdate(request: Request, telegramAuthToken: string) {
 				const senderId = message.from.id
 				await replyToMessage(telegramAuthToken, update.message, MI_PIEGO[senderId])
 			}
-			// I know but it doesn't seem to work with either
-			// /yo\s/gmi
-			// /yo|yoo+/gmi
-			const yoooRegex: RegExp = /yoo+/gmi
-			if (userText == "yo" || yoooRegex.test(userText)) {
+			const yoooRegex: RegExp = /yoo+|yo\s|yo$/gmi
+			if (yoooRegex.test(userText)) {
 				await replyToMessage(telegramAuthToken, update.message, YOOOOOOOOOOO.catchPhrase, YOOOOOOOOOOO.link)
 			}
 			// g == global search, i == case-insenstitive search
@@ -52,8 +49,8 @@ async function processUpdate(request: Request, telegramAuthToken: string) {
 			if (mikRegex.test(userText)) {
 				await sendSticker(telegramAuthToken, message)
 			}
-			const woofRegex: RegExp = /wo+f|grr+/gmi
-			if (woofRegex.test(userText) || userText.includes("bark") || userText.includes("snarl") || userText.includes("arf")) {
+			const woofRegex: RegExp = /wo+f|grr+|bark|snarl|arf|bark|awo+/gmi
+			if (woofRegex.test(userText)) {
 				await replyToMessage(telegramAuthToken, update.message, WOOF)
 			}
 		}
