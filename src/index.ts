@@ -8,7 +8,10 @@
  * Learn more at https://developers.cloudflare.com/workers/
  */
 
+import { ChatMemberAdministrator } from "./types/ChatMemberAdministrator";
+import { MessageEntity } from "./types/MessageEntity";
 import { Update } from "./types/Update";
+import { User } from "./types/User";
 import { MIK, MI_PIEGO, WOOF, YOOOOOOOOOOO } from "./utils";
 
 export interface Env {
@@ -33,16 +36,57 @@ async function processUpdate(request: Request, telegramAuthToken: string) {
 	const update: Update = await request.json();
 	if ("message" in update) {
 		const message = update.message
-		// console.log(message)
+		//console.log(message)
 		if ("text" in message) {
 			const userText = message.text;
+			if (userText.startsWith("/all")) {
+				const response = await fetch(`https://api.telegram.org/bot${telegramAuthToken}/getChatAdministrators?chat_id=${update.message.chat.id}`);
+				const responseBody: {
+					"ok": boolean,
+					"result": ChatMemberAdministrator[]
+				} = await response.json();
+				const chatMemberAdministrators: ChatMemberAdministrator[] = responseBody.result;
+				
+				const messageEntities: MessageEntity[] = [];
+
+				//console.log("bau", chatMemberAdministrators.length, JSON.parse(JSON.stringify(chatMemberAdministrators)))
+
+				let offset: number = 0;
+				let message: string = ''
+
+				for(let count = 0; count < chatMemberAdministrators.length; count++){
+					const currentChatMember = chatMemberAdministrators[count]
+					const currentUser: User = currentChatMember.user;
+
+					//console.log("current user: ", currentUser)
+
+					if (!currentUser.is_bot && 'username' in currentUser) {
+						const mention = `@${currentUser.username}`
+						messageEntities.push({
+							type: "mention",
+							offset: offset,
+							length: mention.length,
+						})
+						if(offset == 0){
+							message = mention
+						} else{
+							message = `${message} ${mention}`
+						}
+						offset = mention.length + 1; //+1 is the space
+					}
+				}
+
+				//console.log("products:", messageEntities, message)
+				await replyToMessage(telegramAuthToken, update.message, message, messageEntities)
+
+			}
 			if (userText.toLowerCase().includes("mi piego")) {
 				const senderId = message.from.id
 				await replyToMessage(telegramAuthToken, update.message, MI_PIEGO[senderId])
 			}
 			const yoooRegex: RegExp = /yoo+|yo\s|yo$/gmi
 			if (yoooRegex.test(userText)) {
-				await replyToMessage(telegramAuthToken, update.message, YOOOOOOOOOOO.catchPhrase, YOOOOOOOOOOO.link)
+				await replyToMessage(telegramAuthToken, update.message, YOOOOOOOOOOO.catchPhrase, "", YOOOOOOOOOOO.link)
 			}
 			// g == global search, i == case-insenstitive search
 			const mikRegex: RegExp = /mik/gmi
@@ -57,7 +101,7 @@ async function processUpdate(request: Request, telegramAuthToken: string) {
 	}
 }
 
-async function replyToMessage(telegramAuthToken: string, message: any, responseText: string, linkUrl: string = "") {
+async function replyToMessage(telegramAuthToken: string, message: any, responseText: string, entities: MessageEntity[] | "" = "", linkUrl: string = "") {
 	const chatId = message.chat.id;
 	const linkPreviewOptions = {
 		url: linkUrl
@@ -65,7 +109,7 @@ async function replyToMessage(telegramAuthToken: string, message: any, responseT
 	const replyParameters = {
 		message_id: message.message_id
 	}
-	const url = `https://api.telegram.org/bot${telegramAuthToken}/sendMessage?chat_id=${chatId}&text=${encodeURIComponent(responseText)}&reply_parameters=${JSON.stringify(replyParameters)}${linkUrl != "" ? `&link_preview_options=${JSON.stringify(linkPreviewOptions)}` : ""}`;
+	const url = `https://api.telegram.org/bot${telegramAuthToken}/sendMessage?chat_id=${chatId}&text=${encodeURIComponent(responseText)}&entities=${JSON.stringify(entities)}&reply_parameters=${JSON.stringify(replyParameters)}${linkUrl != "" ? `&link_preview_options=${JSON.stringify(linkPreviewOptions)}` : ""}`;
 	await fetch(url);
 }
 
