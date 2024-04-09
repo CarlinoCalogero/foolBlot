@@ -119,15 +119,19 @@ async function processUpdate(request: Request, telegramAuthToken: string) {
 						break;
 
 					case "raffo":
+						stickerID = STICKERS.miko
 						break;
 
 					case "mano":
+						stickerID = STICKERS.aqua
 						break;
 
 					case "giacomo":
+						stickerID = STICKERS.megumin
 						break;
 
 					case "enrico":
+						stickerID = STICKERS.kurisu
 						break;
 
 					case "mik":
