@@ -36,7 +36,7 @@ async function processUpdate(request: Request, telegramAuthToken: string) {
 	const update: Update = await request.json();
 	if ("message" in update) {
 		const message = update.message
-		console.log(message)
+		//console.log(message)
 		if ("text" in message) {
 			const userText = message.text;
 			const lowerCaseUserText = userText.toLowerCase()
