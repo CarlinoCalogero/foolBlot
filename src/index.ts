@@ -12,7 +12,7 @@ import { ChatMemberAdministrator } from "./types/ChatMemberAdministrator";
 import { MessageEntity } from "./types/MessageEntity";
 import { Update } from "./types/Update";
 import { User } from "./types/User";
-import { MI_PIEGO, MIAO, STICKERS, WOOF, YOOOOOOOOOOO } from "./utils";
+import { MI_PIEGO, MIAO, STICKERS, USERS_ID, WOOF, YOOOOOOOOOOO } from "./utils";
 
 export interface Env {
 	TELEGRAM_AUTH_TOKEN: string
@@ -36,7 +36,7 @@ async function processUpdate(request: Request, telegramAuthToken: string) {
 	const update: Update = await request.json();
 	if ("message" in update) {
 		const message = update.message
-		//console.log(message)
+		console.log(message)
 		if ("text" in message) {
 			const userText = message.text;
 			const lowerCaseUserText = userText.toLowerCase()
@@ -103,9 +103,39 @@ async function processUpdate(request: Request, telegramAuthToken: string) {
 			if (miaoRegex.test(lowerCaseUserText)) {
 				await replyToMessage(telegramAuthToken, update.message, MIAO.catchPhrase, "", MIAO.link)
 			}
-			if (lowerCaseUserText.includes("sad") || lowerCaseUserText.includes("sadge")) {
-				await sendSticker(telegramAuthToken, message, STICKERS.kana_1)
-				await sendSticker(telegramAuthToken, message, STICKERS.kana_2)
+			const sadnessRegex: RegExp = /sad|sadge|triste/gmi
+			if (sadnessRegex.test(lowerCaseUserText)) {
+				const senderId = message.from.id
+				const senderNickname = USERS_ID[senderId]
+				let stickerID = ''
+				switch (senderNickname) {
+					case "cal":
+						await sendSticker(telegramAuthToken, message, STICKERS.kana_1)
+						stickerID = STICKERS.kana_2
+						break;
+
+					case "luco":
+						stickerID = STICKERS.ruby
+						break;
+
+					case "raffo":
+						break;
+
+					case "mano":
+						break;
+
+					case "giacomo":
+						break;
+
+					case "enrico":
+						break;
+
+					case "mik":
+						stickerID = STICKERS.ganyu
+						break;
+				}
+
+				await sendSticker(telegramAuthToken, message, stickerID)
 			}
 			if (lowerCaseUserText.includes("bruh")) {
 				await sendSticker(telegramAuthToken, message, STICKERS.violin)
