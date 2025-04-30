@@ -8,11 +8,12 @@
  * Learn more at https://developers.cloudflare.com/workers/
  */
 
+import { ChatMember } from "./types/ChatMember";
 import { ChatMemberAdministrator } from "./types/ChatMemberAdministrator";
 import { MessageEntity } from "./types/MessageEntity";
 import { Update } from "./types/Update";
 import { User } from "./types/User";
-import { MI_PIEGO, MIAO, STICKERS, USERS_ID, WOOF, YOOOOOOOOOOO } from "./utils";
+import { MI_PIEGO, MIAO, STICKERS, USERS, USERS_ID, WOOF, YOOOOOOOOOOO } from "./utils";
 
 export interface Env {
 	TELEGRAM_AUTH_TOKEN: string
@@ -38,49 +39,52 @@ async function processUpdate(request: Request, telegramAuthToken: string) {
 		const message = update.message
 		//console.log(message)
 		if ("text" in message) {
+			const chatId = update.message.chat.id
 			const userText = message.text;
 			const lowerCaseUserText = userText.toLowerCase()
 			if (lowerCaseUserText.startsWith("/all")) {
-				const response = await fetch(`https://api.telegram.org/bot${telegramAuthToken}/getChatAdministrators?chat_id=${update.message.chat.id}`);
+				const response = await fetch(`https://api.telegram.org/bot${telegramAuthToken}/getChatAdministrators?chat_id=${chatId}`);
 				const responseBody: {
 					"ok": boolean,
 					"result": ChatMemberAdministrator[]
 				} = await response.json();
+
 				const chatMemberAdministrators: ChatMemberAdministrator[] = responseBody.result;
-
-				const messageEntities: MessageEntity[] = [];
-
 				//console.log("bau", chatMemberAdministrators.length, JSON.parse(JSON.stringify(chatMemberAdministrators)))
+				const chatMemberAdministratorUsernames: string[] = []
+				chatMemberAdministrators.forEach(chatMemberAdministrator => {
+					const user = chatMemberAdministrator.user
+					if (isUserNonBotUserWithUsername(user))
+						chatMemberAdministratorUsernames.push(user.username)
+				});
 
-				let offset: number = 0;
-				let message: string = ''
-
-				for (let count = 0; count < chatMemberAdministrators.length; count++) {
-					const currentChatMember = chatMemberAdministrators[count]
-					const currentUser: User = currentChatMember.user;
-
-					//console.log("current user: ", currentUser)
-
-					if (!currentUser.is_bot && 'username' in currentUser) {
-						const mention = `@${currentUser.username}`
-						messageEntities.push({
-							type: "mention",
-							offset: offset,
-							length: mention.length,
-						})
-						if (offset == 0) {
-							message = mention
-						} else {
-							message = `${message} ${mention}`
-						}
-						offset = mention.length + 1; //+1 is the space
-					}
-				}
+				const [message, messageEntities] = multipleMentions(chatMemberAdministratorUsernames)
 
 				//console.log("products:", messageEntities, message)
 				await replyToMessage(telegramAuthToken, update.message, message, messageEntities)
 
 			}
+
+			if (lowerCaseUserText.startsWith("/animequery")) {
+				const users = [
+					(await getChatMember(telegramAuthToken, chatId, USERS.RAFFO)).result.user.username,
+					(await getChatMember(telegramAuthToken, chatId, USERS.MANO)).result.user.username,
+					(await getChatMember(telegramAuthToken, chatId, USERS.CAL)).result.user.username
+				]
+				const [message, messageEntities] = multipleMentions(users)
+				await replyToMessage(telegramAuthToken, update.message, message, messageEntities)
+			}
+
+			if (lowerCaseUserText.startsWith("/techsquad")) {
+				const users = [
+					(await getChatMember(telegramAuthToken, chatId, USERS.RAFFO)).result.user.username,
+					(await getChatMember(telegramAuthToken, chatId, USERS.GIACOMO)).result.user.username,
+					(await getChatMember(telegramAuthToken, chatId, USERS.MANO)).result.user.username
+				]
+				const [message, messageEntities] = multipleMentions(users)
+				await replyToMessage(telegramAuthToken, update.message, message, messageEntities)
+			}
+
 			// g == global search, i == case-insenstitive search
 			const miPiegoRegex: RegExp = /mi piego|mi sono piegato|mi fa piegare|mi fa piega|mi ha fatto piegare|mi ha fatto piega|mi piegai|mi piegher(o|ò)/gmi
 			if (miPiegoRegex.test(lowerCaseUserText)) {
@@ -150,6 +154,57 @@ async function processUpdate(request: Request, telegramAuthToken: string) {
 			}
 		}
 	}
+}
+
+function isUserNonBotUserWithUsername(user: User): boolean {
+	return !isUserABot(user) && isHasUserUsername(user)
+}
+
+function isUserABot(user: User): boolean {
+	return user.is_bot
+}
+
+function isHasUserUsername(user: User): boolean {
+	return 'username' in user
+}
+
+function multipleMentions(telegramUsernames: string[]): [string, MessageEntity[]] {
+	let messageEntities: MessageEntity[] = [];
+	let offset: number = 0;
+	let message: string = ''
+
+	telegramUsernames.forEach(username => {
+		const [updatedMessageEntities, newOffset, mention] = mentionUsername(username, messageEntities, offset)
+		messageEntities = updatedMessageEntities
+		offset = newOffset
+		if (offset == 0) {
+			message = mention
+		} else {
+			message = `${message} ${mention}`
+		}
+		offset = mention.length + 1; //+1 is the space
+	});
+
+	return [message, messageEntities]
+}
+
+function mentionUsername(username: string, messageEntities: MessageEntity[] = [], offset: number = 0): [MessageEntity[], number, string] {
+	const mention = `@${username}`
+	messageEntities.push({
+		type: "mention",
+		offset: offset,
+		length: mention.length,
+	})
+	return [messageEntities, offset, mention]
+}
+
+async function getChatMember(telegramAuthToken: string, chatId: any, userId: number) {
+	const response = await fetch(`https://api.telegram.org/bot${telegramAuthToken}/getChatMember?chat_id=${chatId}&user_id=${userId}`);
+	const responseBody: {
+		"ok": boolean,
+		"result": ChatMember
+	} = await response.json();
+	return responseBody
 }
 
 async function replyToMessage(telegramAuthToken: string, message: any, responseText: string, entities: MessageEntity[] | "" = "", linkUrl: string = "") {

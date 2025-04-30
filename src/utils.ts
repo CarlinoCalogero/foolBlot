@@ -8,6 +8,16 @@ export const USERS_ID: Record<number, string> = {
     313592737: "mik"
 }
 
+export const USERS: Record<string, number> = {
+    CAL: 873624965,
+    LUCO: 5663655397,
+    RAFFO: 232414549,
+    MANO: 2135558691,
+    GIACOMO: 279499618,
+    ENRICO: 150074880,
+    MIK: 313592737
+}
+
 export const MI_PIEGO: Record<number, string> = {
     // telegram_id mi_piego_phrase
     873624965: "Ca\\\n       ogero",
