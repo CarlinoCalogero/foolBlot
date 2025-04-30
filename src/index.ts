@@ -42,46 +42,51 @@ async function processUpdate(request: Request, telegramAuthToken: string) {
 			const chatId = update.message.chat.id
 			const userText = message.text;
 			const lowerCaseUserText = userText.toLowerCase()
-			if (lowerCaseUserText.startsWith("/all")) {
+			
+			if (lowerCaseUserText.startsWith("/admins")) {
 				const response = await fetch(`https://api.telegram.org/bot${telegramAuthToken}/getChatAdministrators?chat_id=${chatId}`);
 				const responseBody: {
 					"ok": boolean,
 					"result": ChatMemberAdministrator[]
 				} = await response.json();
 
-				const chatMemberAdministrators: ChatMemberAdministrator[] = responseBody.result;
+				const chatMemberAdministrators: ChatMemberAdministrator[] = responseBody.result.filter(chatMemberAdministrator => !isUserABot(chatMemberAdministrator.user));
+				const chatMemberAdministratorsUsers: User[] = chatMemberAdministrators.map(chatMemberAdministrator => chatMemberAdministrator.user)
 				//console.log("bau", chatMemberAdministrators.length, JSON.parse(JSON.stringify(chatMemberAdministrators)))
-				const chatMemberAdministratorUsernames: string[] = []
-				chatMemberAdministrators.forEach(chatMemberAdministrator => {
-					const user = chatMemberAdministrator.user
-					if (isUserNonBotUserWithUsername(user))
-						chatMemberAdministratorUsernames.push(user.username)
-				});
 
-				const [message, messageEntities] = multipleMentions(chatMemberAdministratorUsernames)
+				const [message, messageEntities] = await multipleMentions(chatMemberAdministratorsUsers)
 
 				//console.log("products:", messageEntities, message)
 				await replyToMessage(telegramAuthToken, update.message, message, messageEntities)
+			}
 
+			if (lowerCaseUserText.startsWith("/all")) {
+				const users: User[] = []
+				const userIds = Object.values(USERS)
+				for (let index = 0; index < userIds.length; index++) {
+					users.push((await getChatMember(telegramAuthToken, chatId, userIds[index])).result.user)	
+				}
+				const [message, messageEntities] = await multipleMentions(users, [`${USERS.MIK}`], telegramAuthToken, chatId)
+				await replyToMessage(telegramAuthToken, update.message, message, messageEntities)
 			}
 
 			if (lowerCaseUserText.startsWith("/animequery")) {
 				const users = [
-					(await getChatMember(telegramAuthToken, chatId, USERS.RAFFO)).result.user.username,
-					(await getChatMember(telegramAuthToken, chatId, USERS.MANO)).result.user.username,
-					(await getChatMember(telegramAuthToken, chatId, USERS.CAL)).result.user.username
+					(await getChatMember(telegramAuthToken, chatId, USERS.RAFFO)).result.user,
+					(await getChatMember(telegramAuthToken, chatId, USERS.MANO)).result.user,
+					(await getChatMember(telegramAuthToken, chatId, USERS.CAL)).result.user
 				]
-				const [message, messageEntities] = multipleMentions(users)
+				const [message, messageEntities] = await multipleMentions(users)
 				await replyToMessage(telegramAuthToken, update.message, message, messageEntities)
 			}
 
 			if (lowerCaseUserText.startsWith("/techsquad")) {
 				const users = [
-					(await getChatMember(telegramAuthToken, chatId, USERS.RAFFO)).result.user.username,
-					(await getChatMember(telegramAuthToken, chatId, USERS.GIACOMO)).result.user.username,
-					(await getChatMember(telegramAuthToken, chatId, USERS.MANO)).result.user.username
+					(await getChatMember(telegramAuthToken, chatId, USERS.RAFFO)).result.user,
+					(await getChatMember(telegramAuthToken, chatId, USERS.GIACOMO)).result.user,
+					(await getChatMember(telegramAuthToken, chatId, USERS.MANO)).result.user
 				]
-				const [message, messageEntities] = multipleMentions(users)
+				const [message, messageEntities] = await multipleMentions(users)
 				await replyToMessage(telegramAuthToken, update.message, message, messageEntities)
 			}
 
@@ -168,13 +173,22 @@ function isHasUserUsername(user: User): boolean {
 	return 'username' in user
 }
 
-function multipleMentions(telegramUsernames: string[]): [string, MessageEntity[]] {
+async function multipleMentions(telegramUsers: User[], blacklistedUsersId: string[] = [], telegramAuthToken: string = "", chatId: any = ""): Promise<[string, MessageEntity[]]> {
 	let messageEntities: MessageEntity[] = [];
 	let offset: number = 0;
 	let message: string = ''
 
-	telegramUsernames.forEach(username => {
-		const [updatedMessageEntities, newOffset, mention] = mentionUsername(username, messageEntities, offset)
+	let blacklistedUsernames: string[] = []
+	for (let index = 0; index < blacklistedUsersId.length; index++) {
+		const userId = blacklistedUsersId[index]
+		const user = (await getChatMember(telegramAuthToken, chatId, Number(userId))).result.user
+		blacklistedUsernames.push(user.username)
+	}
+
+	telegramUsers = telegramUsers.filter(user => !blacklistedUsernames.includes(user.username));
+
+	telegramUsers.forEach(user => {
+		const [updatedMessageEntities, newOffset, mention] = user.username != undefined ? mentionUser(user, messageEntities, offset) : mentionUserWithoutUsername(user, messageEntities, offset)
 		messageEntities = updatedMessageEntities
 		offset = newOffset
 		if (offset == 0) {
@@ -182,18 +196,29 @@ function multipleMentions(telegramUsernames: string[]): [string, MessageEntity[]
 		} else {
 			message = `${message} ${mention}`
 		}
-		offset = mention.length + 1; //+1 is the space
+		offset += mention.length + 1; //+1 is the space
 	});
 
 	return [message, messageEntities]
 }
 
-function mentionUsername(username: string, messageEntities: MessageEntity[] = [], offset: number = 0): [MessageEntity[], number, string] {
-	const mention = `@${username}`
+function mentionUser(user: User, messageEntities: MessageEntity[] = [], offset: number = 0): [MessageEntity[], number, string] {
+	const mention = `@${user.username}`
 	messageEntities.push({
 		type: "mention",
 		offset: offset,
+		length: mention.length
+	})
+	return [messageEntities, offset, mention]
+}
+
+function mentionUserWithoutUsername(user: User, messageEntities: MessageEntity[] = [], offset: number = 0): [MessageEntity[], number, string] {
+	const mention = `@${user.first_name}`
+	messageEntities.push({
+		type: "text_mention",
+		offset: offset,
 		length: mention.length,
+		user: user
 	})
 	return [messageEntities, offset, mention]
 }
@@ -207,7 +232,7 @@ async function getChatMember(telegramAuthToken: string, chatId: any, userId: num
 	return responseBody
 }
 
-async function replyToMessage(telegramAuthToken: string, message: any, responseText: string, entities: MessageEntity[] | "" = "", linkUrl: string = "") {
+async function replyToMessage(telegramAuthToken: string, message: any, responseText: string, entities: MessageEntity[] | "" = "", linkUrl: string = "", parseMode = "") {
 	const chatId = message.chat.id;
 	const linkPreviewOptions = {
 		url: linkUrl
@@ -215,7 +240,7 @@ async function replyToMessage(telegramAuthToken: string, message: any, responseT
 	const replyParameters = {
 		message_id: message.message_id
 	}
-	const url = `https://api.telegram.org/bot${telegramAuthToken}/sendMessage?chat_id=${chatId}&text=${encodeURIComponent(responseText)}&entities=${JSON.stringify(entities)}&reply_parameters=${JSON.stringify(replyParameters)}${linkUrl != "" ? `&link_preview_options=${JSON.stringify(linkPreviewOptions)}` : ""}`;
+	const url = `https://api.telegram.org/bot${telegramAuthToken}/sendMessage?chat_id=${chatId}&text=${encodeURIComponent(responseText)}&entities=${JSON.stringify(entities)}&reply_parameters=${JSON.stringify(replyParameters)}${linkUrl != "" ? `&link_preview_options=${JSON.stringify(linkPreviewOptions)}` : ""}${parseMode != "" ? `&parse_mode=${parseMode}` : ""}`;
 	await fetch(url);
 }
 
