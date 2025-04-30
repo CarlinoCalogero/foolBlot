@@ -42,7 +42,7 @@ async function processUpdate(request: Request, telegramAuthToken: string) {
 			const chatId = update.message.chat.id
 			const userText = message.text;
 			const lowerCaseUserText = userText.toLowerCase()
-			
+
 			if (lowerCaseUserText.startsWith("/admins")) {
 				const response = await fetch(`https://api.telegram.org/bot${telegramAuthToken}/getChatAdministrators?chat_id=${chatId}`);
 				const responseBody: {
@@ -64,7 +64,7 @@ async function processUpdate(request: Request, telegramAuthToken: string) {
 				const users: User[] = []
 				const userIds = Object.values(USERS)
 				for (let index = 0; index < userIds.length; index++) {
-					users.push((await getChatMember(telegramAuthToken, chatId, userIds[index])).result.user)	
+					users.push((await getChatMember(telegramAuthToken, chatId, userIds[index])).result.user)
 				}
 				const [message, messageEntities] = await multipleMentions(users, [`${USERS.MIK}`], telegramAuthToken, chatId)
 				await replyToMessage(telegramAuthToken, update.message, message, messageEntities)
@@ -90,12 +90,41 @@ async function processUpdate(request: Request, telegramAuthToken: string) {
 				await replyToMessage(telegramAuthToken, update.message, message, messageEntities)
 			}
 
+			if (lowerCaseUserText.startsWith("/memequestion")) {
+				const users = [
+					(await getChatMember(telegramAuthToken, chatId, USERS.RAFFO)).result.user,
+					(await getChatMember(telegramAuthToken, chatId, USERS.LUCO)).result.user
+				]
+				const [message, messageEntities] = await multipleMentions(users)
+				await replyToMessage(telegramAuthToken, update.message, message, messageEntities)
+			}
+
+			if (lowerCaseUserText.startsWith("/askmanga")) {
+				const users = [
+					(await getChatMember(telegramAuthToken, chatId, USERS.LUCO)).result.user,
+					(await getChatMember(telegramAuthToken, chatId, USERS.CAL)).result.user
+				]
+				const [message, messageEntities] = await multipleMentions(users)
+				await replyToMessage(telegramAuthToken, update.message, message, messageEntities)
+			}
+
+			if (lowerCaseUserText.startsWith("/codepain")) {
+				const [messageEntities, , mention] = mentionUser((await getChatMember(telegramAuthToken, chatId, USERS.ENRICO)).result.user)
+				await replyToMessage(telegramAuthToken, update.message, mention, messageEntities)
+			}
+
+			if (lowerCaseUserText.startsWith("/oppaiappraiser")) {
+				const [messageEntities, , mention] = mentionUser((await getChatMember(telegramAuthToken, chatId, USERS.CAL)).result.user)
+				await replyToMessage(telegramAuthToken, update.message, mention, messageEntities)
+			}
+
 			// g == global search, i == case-insenstitive search
 			const miPiegoRegex: RegExp = /mi piego|mi sono piegato|mi fa piegare|mi fa piega|mi ha fatto piegare|mi ha fatto piega|mi piegai|mi piegher(o|ò)/gmi
 			if (miPiegoRegex.test(lowerCaseUserText)) {
 				const senderId = message.from.id
 				await replyToMessage(telegramAuthToken, update.message, MI_PIEGO[senderId])
 			}
+
 			const ciPieghiamoRegex: RegExp = /ci pieghiamo|ci siamo piegati|ci fa piegare|ci fa piega|ci ha fatto piegare|ci ha fatto piega|ci piegammo|ci piegheremo/gmi
 			if (ciPieghiamoRegex.test(lowerCaseUserText)) {
 				let text = ''
@@ -104,15 +133,18 @@ async function processUpdate(request: Request, telegramAuthToken: string) {
 				}
 				await replyToMessage(telegramAuthToken, update.message, text)
 			}
-			const yoooRegex: RegExp = /yoo+|yo\s|yo$/gmi
+
+			const yoooRegex: RegExp = /\byo+\b(?![^\s])/gmi
 			if (yoooRegex.test(lowerCaseUserText)) {
 				await replyToMessage(telegramAuthToken, update.message, YOOOOOOOOOOO.catchPhrase, "", YOOOOOOOOOOO.link)
 			}
-			const miaoRegex: RegExp = /miao|nya+|nya\s|nya$/gmi
+
+			const miaoRegex: RegExp = /\b(?:miao|nya+)\b(?![^\s])/gmi
 			if (miaoRegex.test(lowerCaseUserText)) {
 				await replyToMessage(telegramAuthToken, update.message, MIAO.catchPhrase, "", MIAO.link)
 			}
-			const sadnessRegex: RegExp = /sad|sadge|triste/gmi
+
+			const sadnessRegex: RegExp = /\b(?:sad|sadge|triste|tristezza)\b(?![^\s])/gmi
 			if (sadnessRegex.test(lowerCaseUserText)) {
 				const senderId = message.from.id
 				const senderNickname = USERS_ID[senderId]
@@ -150,10 +182,12 @@ async function processUpdate(request: Request, telegramAuthToken: string) {
 
 				await sendSticker(telegramAuthToken, message, stickerID)
 			}
+
 			if (lowerCaseUserText.includes("bruh")) {
 				await sendSticker(telegramAuthToken, message, STICKERS.violin)
 			}
-			const woofRegex: RegExp = /wo+f|grr+|bark|snarl|arf|bark|awo+/gmi
+
+			const woofRegex: RegExp = /\b(?:wo+f|grr+|bark|snarl|arf|bark|awo+)\b(?![^\s])/gmi
 			if (woofRegex.test(lowerCaseUserText)) {
 				await replyToMessage(telegramAuthToken, update.message, WOOF)
 			}
@@ -161,16 +195,8 @@ async function processUpdate(request: Request, telegramAuthToken: string) {
 	}
 }
 
-function isUserNonBotUserWithUsername(user: User): boolean {
-	return !isUserABot(user) && isHasUserUsername(user)
-}
-
 function isUserABot(user: User): boolean {
 	return user.is_bot
-}
-
-function isHasUserUsername(user: User): boolean {
-	return 'username' in user
 }
 
 async function multipleMentions(telegramUsers: User[], blacklistedUsersId: string[] = [], telegramAuthToken: string = "", chatId: any = ""): Promise<[string, MessageEntity[]]> {
